@@ -1,0 +1,3 @@
+import scan
+
+scan.main() 
