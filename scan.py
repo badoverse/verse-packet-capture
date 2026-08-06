@@ -6,6 +6,11 @@ import subprocess
 import sys
 import threading
 import time
+import warnings
+
+# Suppress Scapy cryptography deprecation warnings cluttering terminal output
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", module="scapy.*")
 
 from rich.console import Console
 from rich.live import Live
@@ -32,11 +37,9 @@ class PacketSnifferCLI:
         self.packet_count = 0
         self.captured_packets = []
         
-        # Stats counter
         self.stats = {"TCP": 0, "UDP": 0, "ICMP": 0, "ARP": 0, "OTHER": 0}
 
     def _detect_default_interface(self):
-        """Detect active interface via routing table or scapy fallback."""
         try:
             route_output = subprocess.check_output(["ip", "route"], text=True)
             for line in route_output.splitlines():
@@ -180,8 +183,6 @@ class PacketSnifferCLI:
         sniff_thread = threading.Thread(target=self._sniff_worker, daemon=True)
         sniff_thread.start()
 
-        console.print(f"[+] Starting capture on interface: [cyan]{self.interface}[/cyan]...")
-
         try:
             with Live(self.generate_layout(), refresh_per_second=4, screen=True) as live:
                 while not self.stop_event.is_set():
@@ -203,11 +204,12 @@ class PacketSnifferCLI:
 
 
 def main():
-    # Auto-elevation block
+    # Auto-elevation check
     if hasattr(os, "geteuid") and os.geteuid() != 0:
         print("[!] Raw packet capture requires root privileges. Elevating via sudo...")
         try:
-            os.execvp("sudo", ["sudo", sys.executable] + sys.argv)
+            # Re-execute preserving argument vectors without duplicating the binary path
+            os.execvp("sudo", ["sudo", sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:])
         except Exception as e:
             print(f"[-] Failed to elevate permissions: {e}")
             sys.exit(1)
