@@ -202,14 +202,18 @@ class PacketSnifferCLI:
             self.stop_event.set()
             console.print("\n[bold yellow][!] Stopping packet capture...[/bold yellow]")
 
-
 def main():
     # Auto-elevation check
     if hasattr(os, "geteuid") and os.geteuid() != 0:
         print("[!] Raw packet capture requires root privileges. Elevating via sudo...")
         try:
-            # Re-execute preserving argument vectors without duplicating the binary path
-            os.execvp("sudo", ["sudo", sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:])
+            if getattr(sys, 'frozen', False):
+                # Executable binary (e.g., PyInstaller bundle)
+                # sys.argv[0] is already the binary path, so sys.argv holds all necessary arguments
+                os.execvp("sudo", ["sudo"] + sys.argv)
+            else:
+                # Standard Python script execution
+                os.execvp("sudo", ["sudo", sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:])
         except Exception as e:
             print(f"[-] Failed to elevate permissions: {e}")
             sys.exit(1)
